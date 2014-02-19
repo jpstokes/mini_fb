@@ -555,6 +555,15 @@ module MiniFB
         return fetch(url, options)
     end
 
+    def self.list_test_user(app_id, secret)
+      url = "#{graph_base}#{app_id}/accounts/test-users"
+      params = {}
+      params['access_token'] = app_access_token(app_id, secret)
+      options = {}
+      options[:params] = params
+      return fetch(url, options)
+    end
+
     # Makes test_user_1 and test_user_2 friends by sending a request from one to the other then accepting it
     # Raises an error if anything goes wrong, returns response = true if operation is successful
     def self.add_test_user_friendship(test_user_1, test_user_2)
