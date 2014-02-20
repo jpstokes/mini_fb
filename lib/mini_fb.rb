@@ -452,7 +452,7 @@ module MiniFB
         end
 
         unless RUBY_VERSION =~ /1\.9/
-            undef :id, :type
+            undef :type
         end
 
         def methods
