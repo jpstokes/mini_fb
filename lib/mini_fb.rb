@@ -132,7 +132,6 @@ module MiniFB
         def merge_aid(aid, uid)
             uid = uid.to_i
             ret = (uid << 32) + (aid & 0xFFFFFFFF)
-#            puts 'merge_aid=' + ret.inspect
             return ret
         end
     end
@@ -182,8 +181,6 @@ module MiniFB
     # to hide value from simple introspection.
     def MiniFB.call(api_key, secret, method, kwargs)
 
-        puts 'kwargs=' + kwargs.inspect if @@logging
-
         if secret.is_a? String
             secret = FaceBookSecret.new(secret)
         end
@@ -226,7 +223,6 @@ module MiniFB
 
         body = response.body
 
-        puts 'response=' + body.inspect if @@logging
         begin
             data = JSON.parse(body)
             if data.include?("error_msg")
@@ -489,6 +485,10 @@ module MiniFB
         "https://graph.facebook.com/"
     end
 
+    def self.graph_video_base
+        "https://graph-video.facebook.com/"
+    end
+
     # options:
     #   - scope: comma separated list of extends permissions. see http://developers.facebook.com/docs/authentication/permissions
     def self.oauth_url(app_id, redirect_uri, options={})
@@ -508,7 +508,6 @@ module MiniFB
         oauth_url << "&client_secret=#{secret}"
         oauth_url << "&code=#{CGI.escape(code)}"
         resp = RestClient.get oauth_url
-        puts 'resp=' + resp.body.to_s if @@logging
         params = {}
         params_array = resp.split("&")
         params_array.each do |p|
@@ -596,8 +595,23 @@ module MiniFB
         options[:method] = :get
         options[:response_type] = :params
         resp = fetch(url, options)
-        puts 'resp=' + resp.body.to_s if @@logging
         resp
+    end
+
+    # Public search with Facebook Graph API
+    # options:
+    #   - q: query string
+    #   - type: type of search (ex: user, event, etc)
+    #   - params: Any additional parameters you would like to submit
+    def self.search(access_token, q, options={})
+        url = "#{graph_base}search"
+        params = options[:params] || {}
+        params["q"] = "#{q}"
+        params["access_token"] = "#{(access_token)}"
+        params["type"] = options[:type] if options[:type]
+        params["fields"] = options[:fields].join(",") if options[:fields]
+        options[:params] = params
+        return fetch(url, options)
     end
 
     # Gets data from the Facebook Graph API
@@ -622,7 +636,8 @@ module MiniFB
     #   - metadata: to include metadata in response. true/false
     #   - params: Any additional parameters you would like to submit
     def self.post(access_token, id, options={})
-        url = "#{graph_base}#{id}"
+        url_base = options[:type] && options[:type] == 'video' ? graph_video_base : graph_base
+        url = "#{url_base}#{id}"
         url << "/#{options[:type]}" if options[:type]
         options.delete(:type)
         params = options[:params] || {}
@@ -727,8 +742,6 @@ module MiniFB
 
             return res_hash
         rescue RestClient::Exception => ex
-            puts "ex.http_code=" + ex.http_code.to_s
-            puts 'ex.http_body=' + ex.http_body if @@logging
             res_hash = JSON.parse(ex.http_body) # probably should ensure it has a good response
             raise MiniFB::FaceBookError.new(ex.http_code, "#{res_hash["error"]["type"]}: #{res_hash["error"]["message"]}")
         end
@@ -749,7 +762,7 @@ module MiniFB
 
         scopes += %w{
           read_insights read_stream read_mailbox read_friendlists read_requests
-          email ads_management xmpp_login
+          email ads_management xmpp_login manage_pages
           publish_stream create_event rsvp_event sms offline_access
         }
     end
